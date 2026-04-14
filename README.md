@@ -1,59 +1,87 @@
-# MeuProjetoAngular
+# MedFlow AI
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.1.
+Frontend Angular completo para triagem médica inteligente com aparência premium, UX moderna e lógica clínica baseada em regras ponderadas.
 
-## Development server
+## Proposta
 
-To start a local development server, run:
+O projeto simula uma plataforma de healthtech capaz de realizar uma avaliação inicial assistida por inteligência computacional. A aplicação não fornece diagnóstico médico definitivo. Em vez disso, classifica o caso em `BAIXO`, `MÉDIO`, `ALTO` ou `CRÍTICO`, apresenta justificativa, fatores decisivos, alertas e conduta inicial sugerida.
 
-```bash
-ng serve
+## Destaques
+
+- Angular standalone com arquitetura organizada em `pages`, `components`, `services`, `models` e `constants`
+- Fluxo completo com landing page, triagem em etapas, processamento animado, resultado, histórico local e dashboard
+- Motor de triagem no frontend com score clínico, sinais de alarme, combinações de sintomas, comorbidades, idade, duração e intensidade
+- Integração opcional com `openFDA` para consulta complementar de medicamentos, desacoplada do fluxo principal
+- Persistência local via `localStorage`
+- Exportação via impressão/PDF e compartilhamento de resumo
+- Responsivo, acessível e pronto para apresentação acadêmica
+
+## Estrutura
+
+```text
+src/app/
+  components/
+  constants/
+  models/
+  pages/
+  services/
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Telas implementadas
 
-## Code scaffolding
+1. Landing page com hero premium, benefícios, explicação do fluxo e aviso legal
+2. Tela de triagem com questionário em etapas, stepper visual e validação contextual
+3. Tela de processamento com loading refinado e mensagens de análise
+4. Tela de resultado com score, nível de risco, justificativa, alertas, recomendações e consulta openFDA
+5. Tela de histórico local com filtros por risco
+6. Dashboard com indicadores e gráficos visuais em UI própria
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Lógica de triagem
+
+O motor clínico considera:
+
+- idade e extremos etários
+- comorbidades e gestação
+- febre, temperatura, duração e gravidade percebida
+- falta de ar, saturação, dor no peito e tosse com sangue
+- tontura, desmaio, confusão e dor intensa
+- vômitos persistentes, diarreia, limitação funcional e início súbito
+- combinações críticas como `dor no peito + falta de ar`
+
+Os resultados são apresentados com:
+
+- score numérico
+- classificação de risco
+- justificativa amigável
+- fatores que elevaram o risco
+- recomendações práticas
+- alertas de emergência
+
+## API pública
+
+Integração com `openFDA`:
+
+- consulta por medicamento informado pelo usuário
+- exibe alertas públicos, reações adversas e marcas relacionadas quando disponíveis
+- fallback elegante quando a API não responde ou não localiza dados
+
+## Como rodar
 
 ```bash
-ng generate component component-name
+npm install
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Abra `http://localhost:4200`.
+
+## Build de produção
 
 ```bash
-ng generate --help
+npm run build
 ```
 
-## Building
+## Observações
 
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- O histórico fica salvo no navegador, sem backend.
+- A plataforma é educacional e de apresentação.
+- Em caso de emergência, o usuário deve procurar atendimento médico imediatamente.
