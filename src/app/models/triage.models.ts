@@ -119,15 +119,16 @@ export interface TriageAiInput {
   sinaisDeEmergenciaLocais: string[];
   fatoresDecisivosLocais: string[];
   consultaMedicamentosPublica: string | null;
+  respostasTriagem: Record<string, unknown>;
 }
 
 export interface TriageAiResponse {
   resumo: string;
-  nivel_risco: 'baixo' | 'medio' | 'alto' | 'critico';
-  sinais_alerta: string[];
-  orientacao: string;
-  recomendacao_imediata: string;
-  observacoes_importantes: string[];
+  nivelRisco: 'baixo' | 'medio' | 'alto' | 'critico';
+  oQueFazerAgora: string[];
+  cuidadosCaseiros: string[];
+  sinaisDeAlerta: string[];
+  mensagemFinal: string;
   rawText: string;
   generatedAt: string;
 }

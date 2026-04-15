@@ -76,7 +76,7 @@ import { TriageStateService } from '../services/triage-state.service';
           </div>
         </div>
 
-        <div class="form-heading">
+        <div id="triage-form-start" class="form-heading">
           <div>
             <span class="eyebrow">Etapa {{ currentStep() + 1 }}</span>
             <h2>{{ steps[currentStep()].title }}</h2>

@@ -13,166 +13,325 @@ import { RiskLevel } from '../models/triage.models';
   imports: [CommonModule, RouterLink, RiskBadgeComponent],
   template: `
     @if (entry()) {
-      <section class="container result-stack">
-        <div class="result-hero surface-card">
-          <div>
-            <span class="eyebrow">Resultado da triagem</span>
-            <h1>{{ result()!.summary }}</h1>
-            <p>{{ result()!.explanation }}</p>
+      <section class="container result-stack premium-result">
+        <header class="surface-card result-hero-card">
+          <div class="result-hero-main">
+            <div class="result-hero-copy">
+              <span class="eyebrow">Resultado da triagem</span>
+              <h1>{{ result()!.summary }}</h1>
+              <p>{{ result()!.explanation }}</p>
+            </div>
+
+            <div class="result-patient-strip">
+              <div class="result-patient-chip">
+                <span>Paciente</span>
+                <strong>{{ entry()!.answers.age }} anos • {{ formatSex(entry()!.answers.sex) }}</strong>
+              </div>
+              <div class="result-patient-chip">
+                <span>Sintoma principal</span>
+                <strong>{{ entry()!.answers.mainSymptom }}</strong>
+              </div>
+              <div class="result-patient-chip">
+                <span>Linha do tempo</span>
+                <strong>{{ labelize(entry()!.answers.symptomDuration) }} • {{ labelize(entry()!.answers.symptomOnset) }}</strong>
+              </div>
+            </div>
           </div>
 
-          <div class="result-summary">
+          <aside class="result-score-panel" [class.critical]="result()!.level === 'CRITICO'" [class.high]="result()!.level === 'ALTO'">
+            <span class="result-score-label">Classificação inicial</span>
             <app-risk-badge [level]="result()!.level" />
             <strong class="score-display">{{ result()!.score }}</strong>
-            <span>score clínico inicial</span>
-          </div>
-        </div>
+            <p>score clínico inicial baseado em sinais, contexto e fatores agravantes.</p>
+          </aside>
+        </header>
 
         @if (result()!.emergencyAlerts.length > 0) {
-          <div class="alert-banner danger">
-            <strong>Sinais de emergência identificados:</strong>
-            {{ result()!.emergencyAlerts.join(' ') }}
-          </div>
+          <section class="surface-card result-section-card">
+            <div class="result-section-heading">
+              <div>
+                <span class="eyebrow">Sinais críticos</span>
+                <h2>Alertas que exigem atenção imediata</h2>
+              </div>
+            </div>
+
+            <div class="alert-stack">
+              @for (alert of result()!.emergencyAlerts; track alert) {
+                <article class="critical-alert-card">
+                  <span class="critical-alert-icon">!</span>
+                  <div>
+                    <strong>Alerta prioritário</strong>
+                    <p>{{ alert }}</p>
+                  </div>
+                </article>
+              }
+            </div>
+          </section>
         }
 
-        <div class="result-context-grid">
-          <article class="surface-card result-card result-context-card">
-            <span class="eyebrow">Perfil do paciente</span>
-            <strong>{{ entry()!.answers.age }} anos • {{ formatSex(entry()!.answers.sex) }}</strong>
-            <p>
-              {{ entry()!.answers.preExistingConditions.length || 0 }} comorbidade(s) informada(s)
-              e {{ entry()!.answers.pregnant ? 'gestação em andamento' : 'sem gestação em andamento' }}.
-            </p>
-          </article>
-
-          <article class="surface-card result-card result-context-card">
-            <span class="eyebrow">Linha do tempo</span>
-            <strong>{{ labelize(entry()!.answers.symptomDuration) }} • início {{ labelize(entry()!.answers.symptomOnset) }}</strong>
-            <p>
-              Impacto funcional atual:
-              {{ labelize(entry()!.answers.normalActivities) }}.
-            </p>
-          </article>
-
-          <article class="surface-card result-card result-context-card">
-            <span class="eyebrow">Contexto adicional</span>
-            <strong>{{ entry()!.answers.mainSymptom }}</strong>
-            <p>
-              {{ entry()!.answers.contactWithSickPerson ? 'Contato recente com pessoa doente.' : 'Sem contato recente informado.' }}
-              {{ entry()!.answers.allergies ? 'Alergias relevantes registradas.' : 'Sem alergias relevantes registradas.' }}
-            </p>
-          </article>
-        </div>
-
-        <div class="result-grid result-overview-grid">
-          <article class="surface-card result-card">
-            <span class="eyebrow">Análise final da triagem</span>
-            <h2>{{ aiAnalysisTitle() }}</h2>
+        <section class="surface-card result-section-card result-ai-panel">
+          <div class="result-section-heading">
+            <div>
+              <span class="eyebrow">Orientação inteligente</span>
+              <h2>{{ aiAnalysisTitle() }}</h2>
+            </div>
 
             @if (aiAnalysis()) {
-              <div class="result-summary">
+              <div class="result-inline-status">
+                <span>Leitura complementar</span>
                 <app-risk-badge [level]="aiRiskLevel()" />
               </div>
+            }
+          </div>
 
-              @if (aiAnalysis()!.sinais_alerta.length > 0) {
-                <div class="info-list">
-                  <p><strong>Sinais de alerta:</strong> {{ aiAnalysis()!.sinais_alerta.join(', ') }}</p>
+          @if (aiAnalysis()) {
+            <div class="result-ai-grid">
+              <article class="result-ai-lead">
+                <span>Resumo do quadro</span>
+                <strong>{{ aiAnalysis()!.resumo }}</strong>
+                <p>{{ aiAnalysis()!.mensagemFinal }}</p>
+              </article>
+
+              <article class="result-ai-column">
+                <span>O que fazer agora</span>
+                <ul class="result-bullet-list">
+                  @for (item of aiAnalysis()!.oQueFazerAgora; track item) {
+                    <li>{{ item }}</li>
+                  }
+                </ul>
+              </article>
+
+              <article class="result-ai-column">
+                <span>Cuidados iniciais</span>
+                @if (aiAnalysis()!.cuidadosCaseiros.length > 0) {
+                  <ul class="result-bullet-list">
+                    @for (item of aiAnalysis()!.cuidadosCaseiros; track item) {
+                      <li>{{ item }}</li>
+                    }
+                  </ul>
+                } @else {
+                  <p>Nenhuma medida caseira adicional foi sugerida com segurança para este quadro.</p>
+                }
+              </article>
+
+              <article class="result-ai-column alert">
+                <span>Sinais de alerta</span>
+                @if (aiAnalysis()!.sinaisDeAlerta.length > 0) {
+                  <ul class="result-bullet-list">
+                    @for (item of aiAnalysis()!.sinaisDeAlerta; track item) {
+                      <li>{{ item }}</li>
+                    }
+                  </ul>
+                } @else {
+                  <p>Nenhum sinal adicional foi destacado pela IA além da leitura local da triagem.</p>
+                }
+              </article>
+            </div>
+          } @else {
+            <div class="empty-state compact">
+              <p>{{ aiAnalysisError() }}</p>
+            </div>
+          }
+        </section>
+
+        <section class="surface-card result-section-card">
+          <div class="result-section-heading">
+            <div>
+              <span class="eyebrow">Resumo clínico</span>
+              <h2>Contexto do paciente e justificativa da classificação</h2>
+            </div>
+          </div>
+
+          <div class="result-summary-grid">
+            <article class="summary-tile">
+              <span>Perfil do paciente</span>
+              <strong>{{ entry()!.answers.age }} anos • {{ formatSex(entry()!.answers.sex) }}</strong>
+              <p>
+                {{ entry()!.answers.preExistingConditions.length || 0 }} comorbidade(s) informada(s)
+                e {{ entry()!.answers.pregnant ? 'gestação em andamento' : 'sem gestação em andamento' }}.
+              </p>
+            </article>
+
+            <article class="summary-tile">
+              <span>Impacto funcional</span>
+              <strong>{{ labelize(entry()!.answers.normalActivities) }}</strong>
+              <p>
+                Início {{ labelize(entry()!.answers.symptomOnset) }} e duração
+                {{ labelize(entry()!.answers.symptomDuration) }}.
+              </p>
+            </article>
+
+            <article class="summary-tile">
+              <span>Contexto adicional</span>
+              <strong>{{ entry()!.answers.mainSymptom }}</strong>
+              <p>
+                {{ entry()!.answers.contactWithSickPerson ? 'Contato recente com pessoa doente.' : 'Sem contato recente informado.' }}
+                {{ entry()!.answers.allergies ? 'Alergias relevantes registradas.' : 'Sem alergias relevantes registradas.' }}
+              </p>
+            </article>
+
+            <article class="summary-tile summary-tile-wide">
+              <span>Justificativa resumida</span>
+              <strong>{{ result()!.justification }}</strong>
+              <p>{{ result()!.explanation }}</p>
+
+              <div class="insight-stack">
+                <div class="insight-card">
+                  <span>Classificação local</span>
+                  <p class="insight-text insight-text-compact">
+                    <strong>{{ result()!.level }}</strong> • score {{ result()!.score }}
+                  </p>
                 </div>
-              }
+                <div class="insight-card">
+                  <span>Fatores decisivos</span>
+                  <p class="insight-text">{{ result()!.decisiveFactors.join(', ') || 'Nenhum fator dominante.' }}</p>
+                </div>
+                <div class="insight-card">
+                  <span>Sinais críticos locais</span>
+                  <p class="insight-text">
+                    {{ result()!.emergencyAlerts.join(' ') || 'Nenhum sinal crítico adicional identificado.' }}
+                  </p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
 
-              <div class="info-list">
-                <p><strong>Resumo clínico:</strong> {{ aiAnalysis()!.resumo }}</p>
-                <p><strong>Orientação:</strong> {{ aiAnalysis()!.orientacao }}</p>
-                <p><strong>Recomendação imediata:</strong> {{ aiAnalysis()!.recomendacao_imediata }}</p>
-                @if (aiAnalysis()!.observacoes_importantes.length > 0) {
-                  <p><strong>Observações importantes:</strong> {{ aiAnalysis()!.observacoes_importantes.join(', ') }}</p>
+        <section class="surface-card result-section-card">
+          <div class="result-section-heading">
+            <div>
+              <span class="eyebrow">Próximos passos</span>
+              <h2>Recomendações organizadas por prioridade</h2>
+            </div>
+          </div>
+
+          <div class="result-recommendation-grid">
+            @if (urgentRecommendations().length > 0) {
+              <article class="recommendation-group urgent">
+                <div class="recommendation-group-head">
+                  <span class="recommendation-dot"></span>
+                  <div>
+                    <strong>Emergencial</strong>
+                    <p>Ações que devem ser priorizadas agora.</p>
+                  </div>
+                </div>
+
+                <div class="recommendation-list">
+                  @for (item of urgentRecommendations(); track item.title) {
+                    <div class="recommendation-card danger">
+                      <strong>{{ item.title }}</strong>
+                      <p>{{ item.detail }}</p>
+                    </div>
+                  }
+                </div>
+              </article>
+            }
+
+            @if (warningRecommendations().length > 0) {
+              <article class="recommendation-group warning">
+                <div class="recommendation-group-head">
+                  <span class="recommendation-dot"></span>
+                  <div>
+                    <strong>Atenção</strong>
+                    <p>Pontos que exigem acompanhamento próximo.</p>
+                  </div>
+                </div>
+
+                <div class="recommendation-list">
+                  @for (item of warningRecommendations(); track item.title) {
+                    <div class="recommendation-card warning">
+                      <strong>{{ item.title }}</strong>
+                      <p>{{ item.detail }}</p>
+                    </div>
+                  }
+                </div>
+              </article>
+            }
+
+            @if (infoRecommendations().length > 0) {
+              <article class="recommendation-group info">
+                <div class="recommendation-group-head">
+                  <span class="recommendation-dot"></span>
+                  <div>
+                    <strong>Informação</strong>
+                    <p>Orientações complementares para condução segura.</p>
+                  </div>
+                </div>
+
+                <div class="recommendation-list">
+                  @for (item of infoRecommendations(); track item.title) {
+                    <div class="recommendation-card">
+                      <strong>{{ item.title }}</strong>
+                      <p>{{ item.detail }}</p>
+                    </div>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+
+        <section class="surface-card result-section-card">
+          <div class="result-section-heading">
+            <div>
+              <span class="eyebrow">Análise detalhada</span>
+              <h2>Fatores de risco e informações complementares</h2>
+            </div>
+            <button class="btn btn-ghost" type="button" (click)="detailsOpen.update((value) => !value)">
+              {{ detailsOpen() ? 'Ocultar detalhes' : 'Ver detalhes' }}
+            </button>
+          </div>
+
+          <div class="result-detail-grid">
+            <article class="detail-surface">
+              <span class="detail-section-label">Leitura fator a fator</span>
+              <div class="factor-list">
+                @for (factor of visibleFactors(); track factor.label) {
+                  <div class="factor-item">
+                    <div>
+                      <strong>{{ factor.label }}</strong>
+                      <p>{{ factor.description }}</p>
+                    </div>
+                    <span class="factor-weight">+{{ factor.weight }}</span>
+                  </div>
                 }
               </div>
-            } @else {
-              <div class="empty-state compact">
-                <p>{{ aiAnalysisError() }}</p>
-              </div>
-            }
-          </article>
+            </article>
 
-          <article class="surface-card result-card">
-            <span class="eyebrow">Justificativa resumida</span>
-            <h2>{{ result()!.justification }}</h2>
-            <p>Fatores decisivos: {{ result()!.decisiveFactors.join(', ') || 'Nenhum fator dominante.' }}</p>
-          </article>
+            <article class="detail-surface">
+              <span class="detail-section-label">Consulta complementar de medicamentos</span>
 
-          <article class="surface-card result-card">
-            <span class="eyebrow">Recomendações práticas</span>
-            <div class="recommendation-list">
-              @for (item of result()!.recommendations; track item.title) {
-                <div class="recommendation-card" [class.danger]="item.emphasis === 'danger'" [class.warning]="item.emphasis === 'warning'">
-                  <strong>{{ item.title }}</strong>
-                  <p>{{ item.detail }}</p>
-                </div>
-              }
-            </div>
-          </article>
-        </div>
-
-        <div class="result-grid">
-          <article class="surface-card result-card">
-            <div class="card-heading">
-              <div>
-                <span class="eyebrow">Fatores que elevaram o risco</span>
-                <h2>Análise detalhada</h2>
-              </div>
-              <button class="btn btn-ghost" type="button" (click)="detailsOpen.update((value) => !value)">
-                {{ detailsOpen() ? 'Ocultar detalhes' : 'Ver detalhes' }}
-              </button>
-            </div>
-
-            <div class="factor-list">
-              @for (factor of visibleFactors(); track factor.label) {
-                <div class="factor-item">
-                  <div>
-                    <strong>{{ factor.label }}</strong>
-                    <p>{{ factor.description }}</p>
+              @if (medicationLookup()) {
+                <div class="med-grid">
+                  <div class="med-card">
+                    <strong>Consulta</strong>
+                    <p>{{ medicationLookup()!.queriedMedication }}</p>
                   </div>
-                  <span class="factor-weight">+{{ factor.weight }}</span>
+                  <div class="med-card">
+                    <strong>Status</strong>
+                    <p>{{ medicationLookup()!.status === 'success' ? 'Dados públicos localizados' : 'Indisponível agora' }}</p>
+                  </div>
                 </div>
-              }
-            </div>
-          </article>
 
-          <article class="surface-card result-card">
-            <span class="eyebrow">Informações públicas relacionadas</span>
-            <h2>Consulta complementar de medicamentos</h2>
-
-            @if (medicationLookup()) {
-              <div class="med-grid">
-                <div class="med-card">
-                  <strong>Consulta</strong>
-                  <p>{{ medicationLookup()!.queriedMedication }}</p>
-                </div>
-                <div class="med-card">
-                  <strong>Status</strong>
-                  <p>{{ medicationLookup()!.status === 'success' ? 'Dados públicos localizados' : 'Indisponível agora' }}</p>
-                </div>
-              </div>
-
-              @if (medicationLookup()!.status === 'success') {
-                <div class="info-list">
-                  <p><strong>Marcas:</strong> {{ medicationLookup()!.brandNames.join(', ') || 'Não informado' }}</p>
-                  <p><strong>Alertas:</strong> {{ medicationLookup()!.warnings.join(' ') || 'Sem alertas resumidos disponíveis.' }}</p>
-                  <p><strong>Reações adversas:</strong> {{ medicationLookup()!.adverseReactions.join(' ') || 'Sem resumo disponível.' }}</p>
-                </div>
+                @if (medicationLookup()!.status === 'success') {
+                  <div class="info-list">
+                    <p><strong>Marcas:</strong> {{ medicationLookup()!.brandNames.join(', ') || 'Não informado' }}</p>
+                    <p><strong>Alertas:</strong> {{ medicationLookup()!.warnings.join(' ') || 'Sem alertas resumidos disponíveis.' }}</p>
+                    <p><strong>Reações adversas:</strong> {{ medicationLookup()!.adverseReactions.join(' ') || 'Sem resumo disponível.' }}</p>
+                  </div>
+                } @else {
+                  <div class="empty-state compact">
+                    <p>{{ medicationLookup()!.message }}</p>
+                  </div>
+                }
               } @else {
                 <div class="empty-state compact">
-                  <p>{{ medicationLookup()!.message }}</p>
+                  <p>Nenhum medicamento foi informado para consulta complementar.</p>
                 </div>
               }
-            } @else {
-              <div class="empty-state compact">
-                <p>Nenhum medicamento foi informado para consulta complementar.</p>
-              </div>
-            }
-          </article>
-        </div>
+            </article>
+          </div>
+        </section>
 
         <div class="result-actions">
           <button class="btn btn-primary" type="button" (click)="printResult()">Exportar em PDF / Imprimir</button>
@@ -209,12 +368,21 @@ export class ResultPageComponent {
       this.entry()?.aiAnalysisError ??
       'Não foi possível gerar a análise com IA no momento. Revise a triagem local e tente novamente.'
   );
+  readonly urgentRecommendations = computed(() =>
+    (this.result()?.recommendations ?? []).filter((item) => item.emphasis === 'danger')
+  );
+  readonly warningRecommendations = computed(() =>
+    (this.result()?.recommendations ?? []).filter((item) => item.emphasis === 'warning')
+  );
+  readonly infoRecommendations = computed(() =>
+    (this.result()?.recommendations ?? []).filter((item) => item.emphasis !== 'danger' && item.emphasis !== 'warning')
+  );
   readonly visibleFactors = computed(() => {
     const factors = this.result()?.riskFactors ?? [];
     return this.detailsOpen() ? factors : factors.slice(0, 4);
   });
   readonly aiRiskLevel = computed<RiskLevel>(() => {
-    const level = this.aiAnalysis()?.nivel_risco;
+    const level = this.aiAnalysis()?.nivelRisco;
     if (level === 'baixo') {
       return 'BAIXO';
     }
@@ -277,6 +445,7 @@ export class ResultPageComponent {
     }
 
     const medication = this.medicationLookup();
+    const aiAnalysis = this.aiAnalysis();
     const recommendations = result.recommendations
       .map(
         (item) => `
@@ -311,6 +480,29 @@ export class ResultPageComponent {
           </section>
         `
         : '';
+
+    const aiBlock = aiAnalysis
+      ? `
+          <section class="section">
+            <h3>Orientação complementar gerada com IA</h3>
+            <div class="text-block">
+              <p><strong>Resumo:</strong> ${this.escapeHtml(aiAnalysis.resumo)}</p>
+              <p><strong>Nível de risco:</strong> ${this.escapeHtml(aiAnalysis.nivelRisco)}</p>
+              <p><strong>O que fazer agora:</strong> ${this.escapeHtml(aiAnalysis.oQueFazerAgora.join(', ') || 'Não informado')}</p>
+              <p><strong>Cuidados iniciais:</strong> ${this.escapeHtml(aiAnalysis.cuidadosCaseiros.join(', ') || 'Nenhum cuidado caseiro seguro sugerido')}</p>
+              <p><strong>Sinais de alerta:</strong> ${this.escapeHtml(aiAnalysis.sinaisDeAlerta.join(', ') || 'Não informado')}</p>
+              <p><strong>Mensagem final:</strong> ${this.escapeHtml(aiAnalysis.mensagemFinal)}</p>
+            </div>
+          </section>
+        `
+      : `
+          <section class="section">
+            <h3>Orientação complementar gerada com IA</h3>
+            <div class="text-block">
+              <p>${this.escapeHtml(this.aiAnalysisError())}</p>
+            </div>
+          </section>
+        `;
 
     const medicationBlock = medication
       ? medication.status === 'success'
@@ -583,6 +775,8 @@ export class ResultPageComponent {
               ${factors}
             </section>
 
+            ${aiBlock}
+
             ${medicationBlock}
 
             <p class="footer-note">
@@ -607,11 +801,14 @@ export class ResultPageComponent {
 
   shareSummary(): void {
     const result = this.result();
+    const aiAnalysis = this.aiAnalysis();
     if (!result || !this.isBrowser) {
       return;
     }
 
-    const text = `Resumo MedFlow AI: risco ${result.level}, score ${result.score}. ${result.justification}`;
+    const text = aiAnalysis
+      ? `Resumo MedFlow AI: risco ${aiAnalysis.nivelRisco}, score local ${result.score}. ${aiAnalysis.resumo} ${aiAnalysis.mensagemFinal}`
+      : `Resumo MedFlow AI: risco ${result.level}, score ${result.score}. ${result.justification}`;
 
     if (navigator.share) {
       void navigator.share({

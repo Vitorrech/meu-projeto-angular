@@ -20,8 +20,16 @@ interface GeminiGenerateContentResponse {
 
 interface GeminiJsonResponse {
   resumo?: unknown;
+  nivelRisco?: unknown;
   nivel_risco?: unknown;
+  oQueFazerAgora?: unknown;
+  o_que_fazer_agora?: unknown;
+  cuidadosCaseiros?: unknown;
+  cuidados_caseiros?: unknown;
+  sinaisDeAlerta?: unknown;
   sinais_alerta?: unknown;
+  mensagemFinal?: unknown;
+  mensagem_final?: unknown;
   orientacao?: unknown;
   recomendacao_imediata?: unknown;
   observacoes_importantes?: unknown;
@@ -52,14 +60,12 @@ export class TriageAiService {
       }
     };
 
-    return this.http
-      .post<GeminiGenerateContentResponse>(`${this.apiUrl}?key=${this.apiKey}`, body)
-      .pipe(
-        map((response) => {
-          const rawText = this.extractText(response);
-          return this.parseStructuredResponse(rawText);
-        })
-      );
+    return this.http.post<GeminiGenerateContentResponse>(`${this.apiUrl}?key=${this.apiKey}`, body).pipe(
+      map((response) => {
+        const rawText = this.extractText(response);
+        return this.parseStructuredResponse(rawText);
+      })
+    );
   }
 
   toUserMessage(error: unknown): string {
@@ -70,36 +76,46 @@ export class TriageAiService {
     }
 
     if (message === 'empty_gemini_response' || message === 'invalid_gemini_payload') {
-      return 'A IA não retornou uma análise utilizável no momento.';
+      return 'A IA não retornou uma orientação utilizável no momento.';
     }
 
-    return 'Não foi possível gerar a análise com IA no momento. Revise a triagem local e tente novamente.';
+    return 'Não foi possível gerar a orientação inteligente neste momento.';
   }
 
   private buildPrompt(input: TriageAiInput): string {
     return `
-Você é um assistente de apoio à pré-triagem clínica.
-Analise os dados abaixo com prudência clínica.
+Você é um assistente de apoio à pré-triagem médica.
+Sua função é analisar os dados informados por um paciente em uma triagem inicial e gerar uma orientação educativa, segura e organizada em português do Brasil.
 
 Regras obrigatórias:
 - Não forneça diagnóstico definitivo.
 - Não use linguagem absoluta.
-- Indique urgência quando houver sinais graves.
-- Reforce que se trata de triagem inicial e não substitui avaliação profissional.
-- Se houver forte indicação de risco crítico, mencione a necessidade de emergência imediata.
-- Responda somente em JSON válido.
+- Priorize segurança e cautela clínica.
+- Deixe claro quando houver necessidade de atendimento urgente ou emergência.
+- Considere que esta é uma pré-triagem inicial, não uma consulta médica definitiva.
+- Use linguagem compreensível para leigos.
+- Responda somente em JSON válido, sem markdown, sem crases e sem texto fora do JSON.
 
 Formato obrigatório:
 {
   "resumo": "string",
-  "nivel_risco": "baixo|medio|alto|critico",
-  "sinais_alerta": ["string"],
-  "orientacao": "string",
-  "recomendacao_imediata": "string",
-  "observacoes_importantes": ["string"]
+  "nivelRisco": "baixo|medio|alto|critico",
+  "oQueFazerAgora": ["string"],
+  "cuidadosCaseiros": ["string"],
+  "sinaisDeAlerta": ["string"],
+  "mensagemFinal": "string"
 }
 
-Dados da triagem:
+Instruções para preenchimento:
+- "resumo" deve sintetizar o quadro informado pelo paciente e o contexto da pré-triagem.
+- "nivelRisco" deve refletir o risco provável com cautela.
+- "oQueFazerAgora" deve listar orientações práticas imediatas.
+- "cuidadosCaseiros" só deve conter medidas paliativas ou iniciais quando forem seguras.
+- "sinaisDeAlerta" deve listar sinais que indicam busca por atendimento médico com urgência.
+- "mensagemFinal" deve ser clara, responsável e acolhedora.
+- Se não houver cuidado caseiro seguro, retorne um array vazio em "cuidadosCaseiros".
+
+Dados estruturados da triagem:
 ${JSON.stringify(input, null, 2)}
     `.trim();
   }
@@ -126,16 +142,34 @@ ${JSON.stringify(input, null, 2)}
       return this.buildFallbackFromText(rawText);
     }
 
+    const oQueFazerAgora = this.uniqueStrings([
+      ...this.asStringArray(parsed.oQueFazerAgora ?? parsed.o_que_fazer_agora),
+      ...this.asSentenceArray(parsed.recomendacao_imediata),
+      ...this.asSentenceArray(parsed.orientacao)
+    ]);
+
+    const cuidadosCaseiros = this.uniqueStrings([
+      ...this.asStringArray(parsed.cuidadosCaseiros ?? parsed.cuidados_caseiros),
+      ...this.asStringArray(parsed.observacoes_importantes)
+    ]);
+
+    const sinaisDeAlerta = this.uniqueStrings(
+      this.asStringArray(parsed.sinaisDeAlerta ?? parsed.sinais_alerta)
+    );
+
     return {
       resumo: this.asText(parsed.resumo, 'Resumo não disponível.'),
-      nivel_risco: this.normalizeRisk(parsed.nivel_risco),
-      sinais_alerta: this.asStringArray(parsed.sinais_alerta),
-      orientacao: this.asText(parsed.orientacao, 'Procure avaliação médica se houver piora clínica.'),
-      recomendacao_imediata: this.asText(
-        parsed.recomendacao_imediata,
-        'Mantenha observação clínica e procure atendimento presencial se necessário.'
+      nivelRisco: this.normalizeRisk(parsed.nivelRisco ?? parsed.nivel_risco),
+      oQueFazerAgora:
+        oQueFazerAgora.length > 0
+          ? oQueFazerAgora
+          : ['Observe a evolução dos sintomas e procure avaliação presencial se houver piora.'],
+      cuidadosCaseiros,
+      sinaisDeAlerta,
+      mensagemFinal: this.asText(
+        parsed.mensagemFinal ?? parsed.mensagem_final,
+        'Esta orientação apoia uma pré-triagem inicial e não substitui avaliação profissional.'
       ),
-      observacoes_importantes: this.asStringArray(parsed.observacoes_importantes),
       rawText,
       generatedAt: new Date().toISOString()
     };
@@ -151,19 +185,43 @@ ${JSON.stringify(input, null, 2)}
     try {
       return JSON.parse(normalized) as GeminiJsonResponse;
     } catch {
+      const jsonSlice = this.extractJsonObject(normalized);
+      if (!jsonSlice) {
+        return null;
+      }
+
+      try {
+        return JSON.parse(jsonSlice) as GeminiJsonResponse;
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  private extractJsonObject(value: string): string | null {
+    const start = value.indexOf('{');
+    const end = value.lastIndexOf('}');
+
+    if (start === -1 || end === -1 || end <= start) {
       return null;
     }
+
+    return value.slice(start, end + 1);
   }
 
   private buildFallbackFromText(rawText: string): TriageAiResponse {
     return {
       resumo: rawText,
-      nivel_risco: 'medio',
-      sinais_alerta: [],
-      orientacao: 'Revise a triagem local e considere avaliação profissional conforme a evolução clínica.',
-      recomendacao_imediata:
-        'Se houver sinais de piora, dificuldade respiratória, dor intensa ou confusão, procure atendimento imediatamente.',
-      observacoes_importantes: [],
+      nivelRisco: 'medio',
+      oQueFazerAgora: ['Revise a triagem local e considere avaliação profissional conforme a evolução clínica.'],
+      cuidadosCaseiros: [],
+      sinaisDeAlerta: [
+        'Dificuldade para respirar',
+        'Dor intensa ou piora importante dos sintomas',
+        'Confusão mental ou desmaio'
+      ],
+      mensagemFinal:
+        'Não foi possível estruturar a orientação inteligente neste momento. Se houver agravamento, procure atendimento médico.',
       rawText,
       generatedAt: new Date().toISOString()
     };
@@ -178,10 +236,27 @@ ${JSON.stringify(input, null, 2)}
       return [];
     }
 
-    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+    return value
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .map((item) => item.trim());
   }
 
-  private normalizeRisk(value: unknown): TriageAiResponse['nivel_risco'] {
+  private asSentenceArray(value: unknown): string[] {
+    if (typeof value !== 'string') {
+      return [];
+    }
+
+    return value
+      .split(/\n|(?<=[.!?])\s+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  private uniqueStrings(values: string[]): string[] {
+    return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
+  }
+
+  private normalizeRisk(value: unknown): TriageAiResponse['nivelRisco'] {
     if (typeof value !== 'string') {
       return 'medio';
     }

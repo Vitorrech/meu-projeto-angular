@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 
@@ -27,7 +28,7 @@ import { PatientAccessService } from '../services/patient-access.service';
         </nav>
 
         <div class="nav-actions">
-          <a class="btn btn-primary nav-cta" routerLink="/triage">Iniciar triagem</a>
+          <button class="btn btn-primary nav-cta" type="button" (click)="startTriage()">Iniciar triagem</button>
           <button class="btn btn-ghost nav-logout" type="button" (click)="logout()">Sair</button>
         </div>
       </div>
@@ -36,10 +37,23 @@ import { PatientAccessService } from '../services/patient-access.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TopNavComponent {
+  private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
   private readonly access = inject(PatientAccessService);
 
   readonly appName = APP_NAME;
+
+  startTriage(): void {
+    if (this.router.url.startsWith('/triage')) {
+      this.document.getElementById('triage-form-start')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+      return;
+    }
+
+    void this.router.navigate(['/triage']);
+  }
 
   logout(): void {
     this.access.clear();

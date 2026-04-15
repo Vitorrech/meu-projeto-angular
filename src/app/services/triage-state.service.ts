@@ -155,7 +155,35 @@ export class TriageStateService {
       justificativaLocal: result.justification,
       sinaisDeEmergenciaLocais: result.emergencyAlerts,
       fatoresDecisivosLocais: result.decisiveFactors,
-      consultaMedicamentosPublica: medicationLookup?.queriedMedication ?? null
+      consultaMedicamentosPublica: medicationLookup?.queriedMedication ?? null,
+      respostasTriagem: {
+        idade: answers.age,
+        sexo: answers.sex,
+        gestacaoEmAndamento: answers.pregnant,
+        sintomaPrincipal: answers.mainSymptom,
+        inicioDosSintomas: answers.symptomOnset,
+        duracaoDosSintomas: answers.symptomDuration,
+        febre: answers.fever,
+        temperatura: answers.temperature,
+        tosse: answers.cough,
+        faltaDeAr: answers.shortnessOfBreath,
+        respiracaoPercebida: answers.breathingQuality,
+        saturacao: answers.oxygenSaturation,
+        dorNoPeito: answers.chestPain,
+        dorDeCabeca: answers.headache,
+        nauseaOuVomito: answers.nauseaOrVomiting,
+        diarreia: answers.diarrhea,
+        tonturaOuDesmaio: answers.dizzinessOrFainting,
+        confusaoMental: answers.confusion,
+        nivelDeDor: answers.painScale,
+        gravidadePercebida: answers.perceivedSeverity,
+        impactoFuncional: answers.normalActivities,
+        comorbidades: answers.preExistingConditions,
+        usoDeMedicacaoContinua: answers.continuousMedication,
+        medicamentosInformados: answers.medicationNames,
+        alergias: answers.allergies,
+        contatoComPessoaDoente: answers.contactWithSickPerson
+      }
     };
   }
 }

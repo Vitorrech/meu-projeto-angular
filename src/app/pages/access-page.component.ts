@@ -43,7 +43,7 @@ import { PatientAccessService } from '../services/patient-access.service';
                 Seus dados são utilizados apenas para iniciar a triagem com segurança.
               </p>
 
-              <button class="btn btn-primary access-submit" type="submit" [disabled]="!isCpfReady()">
+              <button class="btn btn-primary access-submit" type="submit" [disabled]="!isCpfReady()" (click)="continue()">
                 Continuar
               </button>
             </div>

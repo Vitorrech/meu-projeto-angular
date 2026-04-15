@@ -89,10 +89,10 @@ import { HistoryService } from '../services/history.service';
 
         <div class="dashboard-grid">
           <article class="surface-card chart-card">
-            <span class="eyebrow">Faixa etária</span>
-            <h2>Perfil do público</h2>
+            <span class="eyebrow">Contexto clínico</span>
+            <h2>Marcadores do histórico</h2>
             <div class="bar-list">
-              @for (item of ageGroups(); track item.label) {
+              @for (item of clinicalProfile(); track item.label) {
                 <div class="bar-row compact">
                   <div class="bar-copy">
                     <strong>{{ item.label }}</strong>
@@ -180,26 +180,26 @@ export class DashboardPageComponent {
       .slice(0, 5);
   });
 
-  readonly ageGroups = computed(() => {
+  readonly clinicalProfile = computed(() => {
     const entries = this.entries();
     const buckets = [
-      { label: '0-17', value: 0 },
-      { label: '18-39', value: 0 },
-      { label: '40-59', value: 0 },
-      { label: '60+', value: 0 }
-    ];
-
-    entries.forEach((entry) => {
-      if (entry.answers.age <= 17) {
-        buckets[0].value += 1;
-      } else if (entry.answers.age <= 39) {
-        buckets[1].value += 1;
-      } else if (entry.answers.age <= 59) {
-        buckets[2].value += 1;
-      } else {
-        buckets[3].value += 1;
+      {
+        label: 'Comorbidades informadas',
+        value: entries.filter((entry) => entry.answers.preExistingConditions.length > 0).length
+      },
+      {
+        label: 'Alergias registradas',
+        value: entries.filter((entry) => entry.answers.allergies.trim().length > 0).length
+      },
+      {
+        label: 'Medicação contínua',
+        value: entries.filter((entry) => entry.answers.continuousMedication.trim().length > 0).length
+      },
+      {
+        label: 'Contato com pessoa doente',
+        value: entries.filter((entry) => entry.answers.contactWithSickPerson).length
       }
-    });
+    ];
 
     const max = Math.max(...buckets.map((item) => item.value), 1);
     return buckets.map((item) => ({
