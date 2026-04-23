@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, map, throwError } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, map, of } from 'rxjs';
 
 import { TriageAiInput, TriageAiResponse } from '../models/triage.models';
 import { environment } from '../../environments/environment';
@@ -38,15 +38,9 @@ interface GeminiJsonResponse {
 @Injectable({ providedIn: 'root' })
 export class TriageAiService {
   private readonly http = inject(HttpClient);
-  private readonly apiKey = environment.geminiApiKey;
-  private readonly model = environment.geminiModel;
-  private readonly apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
+  private readonly apiUrl = environment.geminiEndpoint;
 
   generateFinalAnalysis(input: TriageAiInput): Observable<TriageAiResponse> {
-    if (!this.apiKey || this.apiKey === 'YOUR_GEMINI_API_KEY') {
-      return throwError(() => new Error('missing_api_key'));
-    }
-
     const body = {
       contents: [
         {
@@ -60,15 +54,48 @@ export class TriageAiService {
       }
     };
 
-    return this.http.post<GeminiGenerateContentResponse>(`${this.apiUrl}?key=${this.apiKey}`, body).pipe(
+    return this.http.post<GeminiGenerateContentResponse>(this.apiUrl, body).pipe(
       map((response) => {
         const rawText = this.extractText(response);
         return this.parseStructuredResponse(rawText);
-      })
+      }),
+      catchError((error) => of(this.buildLocalFallback(input, this.toUserMessage(error))))
     );
   }
 
   toUserMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const apiMessage = this.extractApiErrorMessage(error);
+
+      if (apiMessage.includes('api key was reported as leaked')) {
+        return 'A chave Gemini configurada foi bloqueada por vazamento. Gere uma nova chave e configure em GEMINI_API_KEY no servidor.';
+      }
+
+      if (apiMessage.includes('api key not valid')) {
+        return 'A chave Gemini configurada é inválida. Gere uma nova chave e configure em GEMINI_API_KEY no servidor.';
+      }
+
+      if (error.status === 500 && apiMessage.includes('gemini_api_key_missing')) {
+        return 'A chave da API Gemini não foi configurada no servidor.';
+      }
+
+      if (error.status === 403) {
+        return 'O Gemini recusou a chamada. Verifique se a chave está ativa, sem bloqueio e com a API Generative Language habilitada.';
+      }
+
+      if (error.status === 404) {
+        return 'O modelo Gemini configurado no servidor não foi encontrado.';
+      }
+
+      if (error.status === 429) {
+        return 'O limite de uso do Gemini foi atingido no momento.';
+      }
+
+      if (error.status === 0) {
+        return 'Não foi possível conectar ao endpoint local do Gemini.';
+      }
+    }
+
     const message = error instanceof Error ? error.message : '';
 
     if (message === 'missing_api_key') {
@@ -80,6 +107,17 @@ export class TriageAiService {
     }
 
     return 'Não foi possível gerar a orientação inteligente neste momento.';
+  }
+
+  private extractApiErrorMessage(error: HttpErrorResponse): string {
+    const payload = error.error as { error?: { message?: unknown }; message?: unknown } | string | null;
+
+    if (typeof payload === 'string') {
+      return payload.toLowerCase();
+    }
+
+    const message = payload?.error?.message ?? payload?.message ?? error.message;
+    return typeof message === 'string' ? message.toLowerCase() : '';
   }
 
   private buildPrompt(input: TriageAiInput): string {
@@ -223,6 +261,53 @@ ${JSON.stringify(input, null, 2)}
       mensagemFinal:
         'Não foi possível estruturar a orientação inteligente neste momento. Se houver agravamento, procure atendimento médico.',
       rawText,
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  private buildLocalFallback(input: TriageAiInput, reason: string): TriageAiResponse {
+    const urgent = input.sinaisDeEmergenciaLocais.length > 0 || input.classificacaoPreliminarLocal === 'CRITICO';
+    const highRisk = urgent || input.classificacaoPreliminarLocal === 'ALTO';
+    const mediumRisk = input.classificacaoPreliminarLocal === 'MEDIO';
+
+    const oQueFazerAgora = urgent
+      ? [
+          'Procure atendimento de emergência agora, especialmente se os sinais persistirem ou estiverem piorando.',
+          'Evite dirigir sozinho e peça ajuda de uma pessoa próxima ou acione o serviço de emergência local.'
+        ]
+      : highRisk
+        ? [
+            'Procure avaliação médica presencial com prioridade.',
+            'Monitore a evolução dos sintomas e antecipe a busca por atendimento se houver piora.'
+          ]
+        : mediumRisk
+          ? [
+              'Acompanhe os sintomas nas próximas horas e procure atendimento se eles persistirem, piorarem ou surgirem sinais de alerta.',
+              'Mantenha hidratação e repouso quando isso for seguro para o quadro informado.'
+            ]
+          : [
+              'Observe a evolução dos sintomas e mantenha cuidados iniciais seguros.',
+              'Procure avaliação profissional se os sintomas não melhorarem ou se aparecer algum sinal de alerta.'
+            ];
+
+    return {
+      resumo: `${input.resumoLocal} Esta leitura complementar considera a classificação local da triagem e os sinais informados pelo paciente.`,
+      nivelRisco: this.normalizeRisk(input.classificacaoPreliminarLocal),
+      oQueFazerAgora,
+      cuidadosCaseiros: urgent
+        ? []
+        : [
+            'Evite automedicação, especialmente se houver alergias, gestação, comorbidades ou uso de medicação contínua.',
+            'Registre temperatura, intensidade da dor e qualquer mudança importante nos sintomas.'
+          ],
+      sinaisDeAlerta: this.uniqueStrings([
+        ...input.sinaisDeEmergenciaLocais,
+        'Dificuldade para respirar, dor no peito, desmaio, confusão mental ou piora rápida dos sintomas',
+        'Febre persistente, sinais de desidratação, dor intensa ou limitação importante das atividades'
+      ]),
+      mensagemFinal:
+        'Esta orientação apoia uma pré-triagem inicial e não substitui avaliação profissional. Em caso de piora, sinais de alerta ou dúvida, procure atendimento médico.',
+      rawText: `fallback_local: ${reason}`,
       generatedAt: new Date().toISOString()
     };
   }
